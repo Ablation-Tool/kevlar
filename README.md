@@ -12,7 +12,7 @@
 
 # Kevlar
 
-Kevlar is a proxy firewall for Model Context Protocol.
+Kevlar is a proxy firewall for Model Context Protocol
 
 
 It sits between (you) and (everyone else)
