@@ -41,10 +41,12 @@ The LLM receives this as context it was given, indistinguishable from legitimate
 ## Install
 
 ```bash
-pip install -e .
+git clone https://github.com/Ablation-Tool/kevlar.git
+cd kevlar
+pip install .
 ```
 
-Requires Python 3.10+. Linux and macOS only. Uses `os.killpg` and `asyncio.connect_read_pipe`.
+Requires Python 3.10+. Linux and macOS only. Depends on `os.killpg` and `asyncio.connect_read_pipe`.
 
 ## Quickstart
 
