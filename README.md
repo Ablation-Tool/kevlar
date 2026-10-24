@@ -2,7 +2,7 @@
 
 # Kevlar
 
-Kevlar sits between your LLM and any MCP server, stripping prompt injection payloads before they reach the model.
+Kevlar sits between your LLM and any MCP server, keeping you safe.
 
 ---
 
