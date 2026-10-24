@@ -159,5 +159,3 @@ pytest
 149 tests. `tests/test_proxy.py` runs integration tests against real subprocess pairs. `tests/test_policy.py` covers the pure policy engine in unit tests.
 
 </details>
-
-*The poly(p-phenylene terephthalamide) monomer. The amide linkage bridges the LLM and MCP sides exactly as the proxy bridges client and server across a locked policy boundary.*
