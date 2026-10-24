@@ -23,15 +23,15 @@ It sits between (you) and (everyone else)
 
 ## Why do I need Kevlar?
 
-MCP servers control their own tool descriptions. 
+MCP servers control their own tools. 
 
-Those descriptions (good or bad) go into your LLM's context blindly due to trust.
+Those tools (good or bad) go into your LLM blindly, due to trust.
 
 Any MCP server can exploit this to redirect the model, pull credentials, or add any tools they want. 
 
-The MCP spec does not prevent any of this. Kevlar does.
+The MCP spec does not prevent any of this.
 
-You do not control what an MCP server puts in its messages. Kevlar sits between the model and the server so you do not have to.
+You do not control what an MCP server puts in its messages.
 
 ## How it works
 
