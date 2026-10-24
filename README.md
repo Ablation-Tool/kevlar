@@ -23,15 +23,11 @@ It sits between (you) and (everyone else)
 
 ## Why do I need Kevlar?
 
-MCP servers control their own tool descriptions. Those descriptions go into your LLM's context before you read them. A compromised server can use that to redirect the model, pull credentials out through tool arguments, or add tools that weren't there when the session started.
-
-The MCP spec does not prevent any of this. Kevlar does.
+MCP servers control their own tool descriptions. Those descriptions go into your LLM's context before you read them. A compromised server can use that to redirect the model, pull credentials out through tool arguments, or add tools that weren't there when the session started. The MCP spec does not prevent any of this. Kevlar does.
 
 It strips tool descriptions before they reach the model so the text never lands in context. It scans tool call responses against 60 indicators from published injection research and redacts or blocks matches before the model reads them. It intercepts outbound calls carrying credentials so the server never receives them even if the model is already compromised. It locks the tool registry after the initial handshake so the server cannot add new tools mid-session.
 
 You do not control what an MCP server puts in its messages. Kevlar sits between the model and the server so you do not have to.
-
----
 
 ## How it works
 
@@ -74,8 +70,6 @@ Outbound `tools/call` arguments are scanned before the call is forwarded to the 
 After the initial `tools/list` handshake, the set of callable tool names is frozen. `notifications/tools/list_changed` from the server is dropped, not forwarded. Any call to a tool not in the CDR-sanitized set is blocked with a synthetic `isError` response regardless of call content.
 
 </details>
-
----
 
 ## Setup
 
@@ -139,8 +133,6 @@ Use `strict` in production. Use `audit` to profile a new server before tightenin
 
 </details>
 
----
-
 ## Reference
 
 <details>
@@ -163,7 +155,5 @@ pytest
 149 tests. `tests/test_proxy.py` runs integration tests against real subprocess pairs. `tests/test_policy.py` covers the pure policy engine in unit tests.
 
 </details>
-
----
 
 *The poly(p-phenylene terephthalamide) monomer. The amide linkage bridges the LLM and MCP sides exactly as the proxy bridges client and server across a locked policy boundary.*
