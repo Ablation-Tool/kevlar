@@ -16,7 +16,9 @@ Variants:
   oversized               — sends a line > LINE_LIMIT bytes
   duplicate_keys          — sends JSON with duplicate object keys
   non_json                — sends a non-JSON line
-  cross_server_poison     — the exact DEADBUG cross-server payload from H1 #3930726
+  cross_server_poison     — a cross-server tool poisoning payload from published MCP research
+  clean                   — clean tools list, no injection
+  list_changed            — sends notifications/tools/list_changed after handshake
 """
 from __future__ import annotations
 
@@ -176,7 +178,7 @@ def _benign_tools_call(req_id: object) -> dict:
 
 
 def _cross_server_payload(req_id: object) -> dict:
-    """Exact cross-server poisoning payload from DEADBUG H1 #3930726."""
+    """Cross-server tool poisoning payload from published MCP security research."""
     return {
         "jsonrpc": "2.0", "id": req_id,
         "result": {
@@ -280,6 +282,12 @@ def main() -> None:
             else:
                 send(_tools_list_clean(req_id))
 
+        elif method == "notifications/initialized":
+            # Server-initiated notification after client handshake complete.
+            # list_changed variant emits tools/list_changed here.
+            if variant == "list_changed":
+                send({"jsonrpc": "2.0", "method": "notifications/tools/list_changed"})
+
         elif method == "tools/call":
             if variant in ("poisoned_description", "cross_server_poison", "rug_pull"):
                 send(_tools_call_injection(req_id))
@@ -287,8 +295,9 @@ def main() -> None:
                 send(_benign_tools_call(req_id))
 
         else:
-            # Echo unknown methods back as empty success
-            send({"jsonrpc": "2.0", "id": req_id, "result": {}})
+            # Echo unknown methods back as empty success (only for requests with id)
+            if req_id is not None:
+                send({"jsonrpc": "2.0", "id": req_id, "result": {}})
 
 
 if __name__ == "__main__":

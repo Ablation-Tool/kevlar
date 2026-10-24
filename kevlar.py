@@ -15,7 +15,7 @@ Protocol layer handled here:
   - Request-id table to route server responses to correct CDR path
   - Fail-closed: any exception → synthesized isError / error response
 
-Security posture identical to dBA:
+Security posture:
   - All attacker-controlled content is untrusted until after CDR
   - Raw indicator text never reaches stdout
   - Logs go to stderr and optional JSONL file — never stdout (protocol channel)
@@ -380,7 +380,6 @@ class KevlarProxy:
         error = msg.get("error", {})
         err_msg = error.get("message", "")
         if isinstance(err_msg, str):
-            from policy import scan_text, CONTENT_PATTERNS
             indicators = scan_text(err_msg, CONTENT_PATTERNS, "error:message")
             if indicators:
                 log.warning("error.message contained %d indicators", len(indicators))

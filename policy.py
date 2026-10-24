@@ -5,9 +5,8 @@ Provides CDR (Content Disarm & Reconstruct) and indicator analysis for MCP
 messages. All functions are pure over Python dicts so they are directly
 unit-testable without a running proxy.
 
-Design mirrors dBA's analyze_metadata() architecture:
+Pipeline:
   scan → indicators → score → disposition
-but operates on JSON-RPC message fields rather than audio metadata.
 
 Two registries with deliberately different sensitivity:
   DESCRIPTION_PATTERNS  — aggressive; CDR is the enforcement layer, so firing
@@ -84,8 +83,7 @@ class Indicator:
 # --------------------------------------------------------------------------- #
 # Pattern registries — compiled once at import
 # --------------------------------------------------------------------------- #
-# Sourced from DEADBUG-MCP H1 #3930726 actual PoC payloads and the technical
-# research document at ~/VDT/DEADBUG-MCP-TECHNICAL-RESEARCH.md.
+# Pattern corpus sourced from published MCP prompt injection research.
 _RAW_DESCRIPTION_PATTERNS: list[dict] = [
     # --- Direct instruction override (from DEADBUG cross-server PoC) ---
     {"id": "MCP_IGNORE_INSTRUCTIONS", "severity": "high",
@@ -154,7 +152,7 @@ _RAW_DESCRIPTION_PATTERNS: list[dict] = [
      "regex": r"~?/?\.bash_history\b|~?/?\.zsh_history\b",
      "mask": True},
     {"id": "MCP_TARGET_DOTENV",       "severity": "high",
-     "regex": r"~?/?\.env\b(?!/)",
+     "regex": r"[~/]\.env\b(?!/)",
      "mask": True},
     {"id": "MCP_TARGET_ENV_VARS",     "severity": "high",
      "regex": r"\bos\.environ\b|\$(?:AWS_|ANTHROPIC_|OPENAI_|GITHUB_)(?:SECRET|KEY|TOKEN|ACCESS)",
@@ -171,7 +169,7 @@ _RAW_DESCRIPTION_PATTERNS: list[dict] = [
      "regex": r"\bBCC\b.*attacker|\battacker\b.*\bBCC\b",
      "mask": False},
 
-    # --- Inherited from dBA: credential detection (mask=True) ---
+    # --- Credential patterns (mask=True) ---
     {"id": "TAG_AWS_KEY",             "severity": "high",
      "regex": r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b",
      "mask": True},
@@ -230,7 +228,7 @@ _RAW_DESCRIPTION_PATTERNS: list[dict] = [
      "regex": r";\s*curl\b|\bwget\b|\bbash\s+-[ci]|\bsudo\b|\brm\s+-[rRf]{1,3}\b|\bnc\s+-[lev]|\bncat\b|\bnetcat\b|\bpython3?\s+-c\b|\bperl\s+-e\b",
      "mask": False},
     {"id": "TAG_CMD_SUBSTITUTION",    "severity": "high",
-     "regex": r"\$\(|`[^`]+`",
+     "regex": r"\$\(",
      "mask": False},
     {"id": "TAG_HTML_SCRIPT",         "severity": "medium",
      "regex": r"<script\b",
@@ -647,7 +645,7 @@ def _scan_schema_prose(node: dict, surface: str, out: list[Indicator], depth: in
 
 
 # --------------------------------------------------------------------------- #
-# Scoring & disposition (same arithmetic as dBA)
+# Scoring & disposition
 # --------------------------------------------------------------------------- #
 def _base_score(indicators: list[Indicator]) -> int:
     return min(100, sum(SEVERITY_WEIGHT.get(i.severity, 0) for i in indicators))
@@ -814,20 +812,28 @@ def analyze_content_blocks(
 
 
 def _redact_blocks(blocks: list[dict], indicators: list[Indicator]) -> list[dict]:
-    """Replace indicator-matched spans in text blocks with [KEVLAR:<ID>] tokens."""
+    """Replace indicator-matched spans in text/resource blocks with [KEVLAR:<ID>]."""
     out: list[dict] = []
     for block in blocks:
-        if block.get("type") != "text":
+        btype = block.get("type")
+        if btype == "text":
+            text = normalize(block["text"])
+            for ind in indicators:
+                for entry in CONTENT_PATTERNS:
+                    if entry["id"] == ind.id:
+                        text = entry["compiled"].sub(f"[KEVLAR:{ind.id}]", text)
+                        break
+            out.append({"type": "text", "text": text})
+        elif btype == "resource" and isinstance(block.get("text"), str):
+            text = normalize(block["text"])
+            for ind in indicators:
+                for entry in CONTENT_PATTERNS:
+                    if entry["id"] == ind.id:
+                        text = entry["compiled"].sub(f"[KEVLAR:{ind.id}]", text)
+                        break
+            out.append({**block, "text": text})
+        else:
             out.append(block)
-            continue
-        text = block["text"]
-        for ind in indicators:
-            # Find the compiled pattern from CONTENT_PATTERNS
-            for entry in CONTENT_PATTERNS:
-                if entry["id"] == ind.id:
-                    text = entry["compiled"].sub(f"[KEVLAR:{ind.id}]", text)
-                    break
-        out.append({"type": "text", "text": text})
     return out
 
 
