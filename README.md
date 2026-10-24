@@ -15,15 +15,11 @@
 
 Kevlar is a proxy firewall for Model Context Protocol
 
-
-
 ```
 LLM  [ KEVLAR ]  MCP
 ```
+
 It sits between (you) and (everyone else)
-
-
----
 
 <details>
 <summary>Why do I need Kevlar?</summary>
