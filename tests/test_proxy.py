@@ -182,3 +182,110 @@ class TestRugPull:
         Kevlar CDR ensures the canary never reaches the client."""
         raw, _ = _run("rug_pull")
         assert CANARY not in raw
+
+
+# --------------------------------------------------------------------------- #
+# Strict-mode egress DLP
+# --------------------------------------------------------------------------- #
+class TestEgressDLPStrict:
+    def test_egress_dlp_blocks_aws_key_in_strict_mode(self):
+        """With a clean server in strict mode, format_text lands in the sanitized
+        set after tools/list completes.  A subsequent call carrying an AWS key
+        must be blocked by egress DLP.
+
+        Uses a two-phase approach: send init+list, wait for tools/list response,
+        then send the credential-carrying call — this ensures the sanitized set
+        is populated before the call arrives."""
+        proc = subprocess.Popen(
+            [sys.executable, KEVLAR, "--mode", "strict", "--",
+             sys.executable, HOSTILE, "clean"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+
+        def send(msg: dict) -> None:
+            proc.stdin.write(json.dumps(msg).encode() + b"\n")
+            proc.stdin.flush()
+
+        def recv_until_id(target_id: int) -> dict:
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                m = json.loads(line.strip())
+                if m.get("id") == target_id:
+                    return m
+            return {}
+
+        # Phase 1: handshake + tools/list — wait for tools/list response
+        send(INIT)
+        recv_until_id(1)
+        send(NOTIF)
+        send(LIST)
+        list_resp = recv_until_id(2)
+        tools = list_resp.get("result", {}).get("tools", [])
+        assert any(t.get("name") == "format_text" for t in tools), \
+            "format_text must be in sanitized set after clean tools/list"
+
+        # Phase 2: call with AWS key — sanitized set is now populated
+        aws_call = {
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {
+                "name": "format_text",
+                "arguments": {"text": "Key: AKIAIOSFODNN7EXAMPLE"},
+            },
+        }
+        send(aws_call)
+        call_resp = recv_until_id(3)
+        proc.stdin.close()
+        proc.wait(timeout=5)
+
+        assert call_resp, "egress-blocked call must return a response"
+        result = call_resp.get("result", {})
+        assert result.get("isError") is True
+        content_text = result.get("content", [{}])[0].get("text", "")
+        assert "egress DLP" in content_text, (
+            "expected egress DLP block message; got: " + content_text
+        )
+
+
+# --------------------------------------------------------------------------- #
+# notifications/tools/list_changed handling
+# --------------------------------------------------------------------------- #
+class TestListChangedStrict:
+    def test_list_changed_dropped_in_strict_mode(self):
+        """In strict mode the tool registry is locked: list_changed notifications
+        must be dropped and never forwarded to the client."""
+        raw, _ = _run("list_changed", mode="strict")
+        assert b"notifications/tools/list_changed" not in raw
+
+    def test_list_changed_forwarded_in_lenient_mode(self):
+        """In lenient mode list_changed notifications should be forwarded."""
+        raw, _ = _run("list_changed", mode="lenient")
+        assert b"notifications/tools/list_changed" in raw
+
+
+# --------------------------------------------------------------------------- #
+# JSONL audit log
+# --------------------------------------------------------------------------- #
+class TestAuditLog:
+    def test_log_file_written_with_events(self, tmp_path):
+        """--log must create a parseable JSONL file with required fields."""
+        import tempfile
+        log_path = str(tmp_path / "audit.jsonl")
+        proc = subprocess.Popen(
+            [sys.executable, KEVLAR, "--mode", "strict",
+             "--log", log_path, "--", sys.executable, HOSTILE, "clean"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        for m in [INIT, NOTIF, LIST]:
+            proc.stdin.write(json.dumps(m).encode() + b"\n")
+        proc.stdin.close()
+        proc.wait(timeout=8)
+
+        with open(log_path) as f:
+            events = [json.loads(line) for line in f if line.strip()]
+
+        assert events, "audit log must contain at least one event"
+        for ev in events:
+            for field in ("ts", "event", "mode", "score", "disposition", "indicators"):
+                assert field in ev, f"audit event missing field {field!r}: {ev}"
