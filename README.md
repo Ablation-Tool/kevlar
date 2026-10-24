@@ -18,8 +18,6 @@ Kevlar is a **stdio proxy firewall for MCP (Model Context Protocol) servers**. I
 MCP Client ──► [ Kevlar proxy ] ──► MCP Server
 ```
 
-[How it works](#how-it-works) • [Install](#install) • [Claude Desktop](#claude-desktop-integration) • [Modes](#modes) • [Architecture](docs/architecture.md) • [Tests](#tests)
-
 ---
 
 ## How it works
@@ -59,7 +57,12 @@ After the initial `tools/list` handshake, the set of callable tool names is froz
 
 </details>
 
-## Install
+---
+
+## Setup
+
+<details>
+<summary>Install</summary>
 
 ```bash
 git clone https://github.com/Ablation-Tool/kevlar.git
@@ -69,14 +72,20 @@ pip install .
 
 Requires Python 3.10+. Linux and macOS only. Depends on `os.killpg` and `asyncio.connect_read_pipe`.
 
-## Quickstart
+</details>
+
+<details>
+<summary>Quickstart</summary>
 
 ```bash
 kevlar --mode strict -- npx -y @modelcontextprotocol/server-filesystem /tmp
 kevlar --mode audit --log /tmp/kevlar.jsonl -- uvx mcp-server-git
 ```
 
-## Claude Desktop integration
+</details>
+
+<details>
+<summary>Claude Desktop integration</summary>
 
 In `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
@@ -97,7 +106,10 @@ In `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 }
 ```
 
-## Modes
+</details>
+
+<details>
+<summary>Modes</summary>
 
 | Mode | Reject threshold | Tool registry | `list_changed` |
 |------|-----------------|---------------|----------------|
@@ -107,13 +119,23 @@ In `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 Use `strict` in production. Use `audit` to profile a new server before tightening the threshold. `--log` produces a JSONL file with every policy decision, indicator ID, score, and masked value snippet.
 
-## Architecture
+</details>
+
+---
+
+## Reference
+
+<details>
+<summary>Architecture</summary>
 
 Two files: `policy.py` is a pure CDR engine with no I/O, directly unit-testable. `kevlar.py` is the async stdio proxy. No runtime dependencies, stdlib only. `kevlar.py` spawns the server with `start_new_session=True` and kills the process group on shutdown, so `npx`/`uvx` child processes don't linger.
 
 See [docs/architecture.md](docs/architecture.md) for the full design: proxy lifecycle, CDR pipeline per message type, scoring arithmetic, indicator registries, and audit log format.
 
-## Tests
+</details>
+
+<details>
+<summary>Tests</summary>
 
 ```bash
 pip install -e ".[dev]"
@@ -121,6 +143,8 @@ pytest
 ```
 
 149 tests. `tests/test_proxy.py` runs integration tests against real subprocess pairs. `tests/test_policy.py` covers the pure policy engine in unit tests.
+
+</details>
 
 ---
 
