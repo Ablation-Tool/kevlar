@@ -17,8 +17,6 @@ Kevlar is a proxy firewall for Model Context Protocol.
 
 It sits between (you) and (everyone else)
 
-intercepting all JSON-RPC messages in both directions.
-
 ```
 MCP Client ──► [ Kevlar proxy ] ──► MCP Server
 ```
