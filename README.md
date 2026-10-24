@@ -12,7 +12,8 @@
 
 # Kevlar
 
-Kevlar is a **stdio proxy firewall for MCP (Model Context Protocol) servers**. It sits between an MCP client and an MCP server, intercepting all JSON-RPC messages in both directions.
+Kevlar is a proxy firewall for MCP (Model Context Protocol) servers.
+It sits between an MCP client (you) and an MCP server (everyone else), intercepting all JSON-RPC messages in both directions.
 
 ```
 MCP Client ──► [ Kevlar proxy ] ──► MCP Server
