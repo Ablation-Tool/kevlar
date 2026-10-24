@@ -30,13 +30,40 @@ MCP servers send `tools/list` responses directly into the LLM's context. A malic
 
 The LLM receives this as context it was given, indistinguishable from legitimate instructions.
 
-**CDR on `tools/list`:** Kevlar strips every `description` field to `""` unconditionally on every `tools/list` response, before the message reaches the client. The LLM sees `name` and `inputSchema` only. `inputSchema` is rebuilt from an allowlist: prose fields like `description`, `title`, `examples`, and `$comment` are stripped there too, and `enum` values, property keys, `$ref` targets, and `type` values are validated against the MCP spec. Score 0 on this pass cannot be achieved by adding description text back, because description text is never forwarded regardless of score.
+**TL;DR.** Kevlar sits between client and server and does four things:
 
-**Analysis on `tools/call` responses:** Tool call results cannot be stripped without breaking functionality. Kevlar scans them against ~60 indicators sourced from published prompt injection research. Responses scoring above the mode threshold are quarantined (matched spans replaced with `[KEVLAR:<ID>]` tokens) or rejected (replaced with an `isError` block). Unicode bypass attempts using characters that normalize to injection text under NFKC are detected before normalization and redacted after.
+1. Strips all tool descriptions before they reach the LLM. No exceptions.
+2. Scans tool call responses for injection payloads and either redacts matched spans or blocks the response entirely.
+3. Blocks outbound calls carrying credentials in their arguments, even if the LLM has already been compromised.
+4. Locks the tool registry after the initial handshake so the server cannot inject new tools mid-session.
 
-**Egress DLP:** Outbound `tools/call` arguments are scanned before the call is forwarded to the server. If the LLM has already been compromised and is trying to exfiltrate credentials, the call is blocked at the proxy layer. The server never receives it. Runs in all three modes.
+<details>
+<summary>CDR on <code>tools/list</code></summary>
 
-**Tool registry lock (strict mode):** After the initial `tools/list` handshake, the set of callable tool names is frozen. `notifications/tools/list_changed` from the server is dropped, not forwarded. Any call to a tool not in the CDR-sanitized set is blocked with a synthetic `isError` response regardless of call content.
+Kevlar strips every `description` field to `""` unconditionally on every `tools/list` response, before the message reaches the client. The LLM sees `name` and `inputSchema` only. `inputSchema` is rebuilt from an allowlist: prose fields like `description`, `title`, `examples`, and `$comment` are stripped there too, and `enum` values, property keys, `$ref` targets, and `type` values are validated against the MCP spec. Score 0 on this pass cannot be achieved by adding description text back, because description text is never forwarded regardless of score.
+
+</details>
+
+<details>
+<summary>Analysis on <code>tools/call</code> responses</summary>
+
+Tool call results cannot be stripped without breaking functionality. Kevlar scans them against ~60 indicators sourced from published prompt injection research. Responses scoring above the mode threshold are quarantined (matched spans replaced with `[KEVLAR:<ID>]` tokens) or rejected (replaced with an `isError` block). Unicode bypass attempts using characters that normalize to injection text under NFKC are detected before normalization and redacted after.
+
+</details>
+
+<details>
+<summary>Egress DLP</summary>
+
+Outbound `tools/call` arguments are scanned before the call is forwarded to the server. If the LLM has already been compromised and is trying to exfiltrate credentials, the call is blocked at the proxy layer. The server never receives it. Runs in all three modes.
+
+</details>
+
+<details>
+<summary>Tool registry lock (strict mode)</summary>
+
+After the initial `tools/list` handshake, the set of callable tool names is frozen. `notifications/tools/list_changed` from the server is dropped, not forwarded. Any call to a tool not in the CDR-sanitized set is blocked with a synthetic `isError` response regardless of call content.
+
+</details>
 
 ## Install
 
