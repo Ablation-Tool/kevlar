@@ -21,8 +21,7 @@ LLM  [ KEVLAR ]  MCP
 
 It sits between (you) and (everyone else)
 
-<details>
-<summary>Why do I need Kevlar?</summary>
+## Why do I need Kevlar?
 
 MCP servers control their own tool descriptions. Those descriptions go into your LLM's context before you read them. A compromised server can use that to redirect the model, pull credentials out through tool arguments, or add tools that weren't there when the session started.
 
@@ -31,8 +30,6 @@ The MCP spec does not prevent any of this. Kevlar does.
 It strips tool descriptions before they reach the model so the text never lands in context. It scans tool call responses against 60 indicators from published injection research and redacts or blocks matches before the model reads them. It intercepts outbound calls carrying credentials so the server never receives them even if the model is already compromised. It locks the tool registry after the initial handshake so the server cannot add new tools mid-session.
 
 You do not control what an MCP server puts in its messages. Kevlar sits between the model and the server so you do not have to.
-
-</details>
 
 ---
 
