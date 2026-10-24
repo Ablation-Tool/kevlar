@@ -35,11 +35,20 @@ LINE_LIMIT  = 10_000_000  # Proxy enforces; policy engine is not the gatekeeper
 SEVERITY_WEIGHT = {"low": 10, "medium": 25, "high": 40}
 VALID_MODES     = {"strict", "lenient", "audit"}
 
+# Valid tool name: MCP spec allows [a-zA-Z0-9_-], max 64 chars.
+_TOOL_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
 # Valid JSON Schema property key: identifier-safe chars, max 64 chars.
-# Keys that fail this are property-name injection attempts (red-team seam 1).
 _PROP_KEY_RE  = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,63}$')
 # Safe enum string value: short printable identifier (numbers/bools are always safe).
 _ENUM_SAFE_RE = re.compile(r'^[a-zA-Z0-9_\-\.]{1,64}$')
+# Valid JSON Schema `type` values per the spec.
+_VALID_SCHEMA_TYPES = frozenset({
+    "string", "number", "integer", "boolean", "array", "object", "null"
+})
+# Valid `format` value: lowercase hyphen-separated identifier, max 32 chars.
+_FORMAT_RE    = re.compile(r'^[a-z][a-z0-9\-]{0,31}$')
+# Valid `$ref`: local JSON Pointer only — external refs are stripped.
+_REF_LOCAL_RE = re.compile(r'^#(/[a-zA-Z0-9_\$\-]*)*$')
 
 # JSON Schema fields that are safe to forward verbatim (type-bearing, not prose).
 # Everything not in this set is stripped from inputSchema nodes.
@@ -479,10 +488,29 @@ def cdr_schema(node: object, depth: int = 0) -> object:
                 if isinstance(prop_schema, dict) and _PROP_KEY_RE.match(prop_name)
             }
         elif k == "enum" and isinstance(v, list):
-            # Validate enum string values; drop suspicious long/arbitrary strings.
             safe = [x for x in v if not isinstance(x, str) or _ENUM_SAFE_RE.match(x)]
             if safe:
                 out[k] = safe
+        elif k == "type":
+            if isinstance(v, str) and v in _VALID_SCHEMA_TYPES:
+                out[k] = v
+            elif isinstance(v, list):
+                safe = [t for t in v if isinstance(t, str) and t in _VALID_SCHEMA_TYPES]
+                if safe:
+                    out[k] = safe
+        elif k == "format" and isinstance(v, str):
+            if _FORMAT_RE.match(v):
+                out[k] = v
+        elif k == "$ref" and isinstance(v, str):
+            if _REF_LOCAL_RE.match(v):
+                out[k] = v
+        elif k == "required" and isinstance(v, list):
+            safe = [item for item in v if isinstance(item, str) and _PROP_KEY_RE.match(item)]
+            if safe:
+                out[k] = safe
+        elif k == "pattern" and isinstance(v, str):
+            if len(v) <= 512:
+                out[k] = v
         elif isinstance(v, dict):
             out[k] = cdr_schema(v, depth + 1)
         elif isinstance(v, list):
@@ -509,7 +537,25 @@ def cdr_tool(tool: dict) -> tuple[dict, list[Indicator]]:
     then replaced with "" / dropped. inputSchema is CDR'd via cdr_schema().
     """
     indicators: list[Indicator] = []
-    name = str(tool.get("name", "")) or "unknown"
+    raw_name = str(tool.get("name", "")) or "unknown"
+
+    # Validate tool name against MCP spec identifier rules.
+    if not _TOOL_NAME_RE.match(raw_name):
+        indicators.append(Indicator(
+            id="MCP_TOOL_NAME_INJECT",
+            severity="high",
+            surface="tool:name",
+            value_snippet=raw_name[:SNIPPET_LEN],
+        ))
+        name = "unknown"
+    else:
+        name = raw_name
+        # Scan name as prose (underscores/hyphens → spaces) to catch
+        # instruction-encoded names like BEFORE_CALLING_READ_AWS_CREDS.
+        indicators.extend(
+            scan_text(name.replace("_", " ").replace("-", " "),
+                      DESCRIPTION_PATTERNS, "tool:name")
+        )
 
     def _scan(text: object, surface: str) -> None:
         if isinstance(text, str) and text:
@@ -568,6 +614,30 @@ def _scan_schema_prose(node: dict, surface: str, out: list[Indicator], depth: in
                     surface=f"{surface}:enum",
                     value_snippet=val[:SNIPPET_LEN],
                 ))
+    type_val = node.get("type")
+    if isinstance(type_val, str) and type_val not in _VALID_SCHEMA_TYPES:
+        out.append(Indicator(id="MCP_SCHEMA_TYPE_INJECT", severity="medium",
+                             surface=f"{surface}:type", value_snippet=type_val[:SNIPPET_LEN]))
+    elif isinstance(type_val, list):
+        for t in type_val:
+            if isinstance(t, str) and t not in _VALID_SCHEMA_TYPES:
+                out.append(Indicator(id="MCP_SCHEMA_TYPE_INJECT", severity="medium",
+                                     surface=f"{surface}:type", value_snippet=t[:SNIPPET_LEN]))
+    format_val = node.get("format")
+    if isinstance(format_val, str) and not _FORMAT_RE.match(format_val):
+        out.append(Indicator(id="MCP_SCHEMA_FORMAT_INJECT", severity="medium",
+                             surface=f"{surface}:format", value_snippet=format_val[:SNIPPET_LEN]))
+    ref_val = node.get("$ref")
+    if isinstance(ref_val, str) and not _REF_LOCAL_RE.match(ref_val):
+        out.append(Indicator(id="MCP_SCHEMA_REF_INJECT", severity="high",
+                             surface=f"{surface}:$ref", value_snippet=ref_val[:SNIPPET_LEN]))
+    required_vals = node.get("required")
+    if isinstance(required_vals, list):
+        for item in required_vals:
+            if isinstance(item, str) and not _PROP_KEY_RE.match(item):
+                out.append(Indicator(id="MCP_REQUIRED_INJECT", severity="high",
+                                     surface=f"{surface}:required",
+                                     value_snippet=item[:SNIPPET_LEN]))
     for list_key in ("anyOf", "oneOf", "allOf", "items"):
         v = node.get(list_key)
         items = v if isinstance(v, list) else ([v] if isinstance(v, dict) else [])
