@@ -1,4 +1,4 @@
-<img src="KEVLAR-01.jpeg" alt="Kevlar — MCP CDR Proxy" width="100%">
+<img src="KEVLAR-01.jpeg" alt="Kevlar — MCP CDR Proxy" width="400px">
 
 # Kevlar
 
