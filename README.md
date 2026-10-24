@@ -25,18 +25,18 @@ It sits between (you) and (everyone else)
 
 ---
 
-## Why do I need Kevlar?
+<details>
+<summary>Why do I need Kevlar?</summary>
 
-MCP servers are a blind trust problem. When you connect an MCP server to your LLM, the server controls what goes into tool descriptions — and those descriptions land in the model's context before you've seen them. A malicious or compromised server can use that to hijack the model's behavior, exfiltrate credentials through tool call arguments, or inject new tools mid-session that weren't present at handshake time.
+MCP servers control their own tool descriptions. Those descriptions go into your LLM's context before you read them. A compromised server can use that to redirect the model, pull credentials out through tool arguments, or add tools that weren't there when the session started.
 
-Kevlar enforces four things the MCP spec doesn't:
+The MCP spec does not prevent any of this. Kevlar does.
 
-- **Tool descriptions never reach the LLM** — stripped unconditionally. The model can't be manipulated through text it never sees.
-- **Tool call responses are scanned** — ~60 indicators sourced from published injection research. Matched content is redacted or the entire response is blocked before the model reads it.
-- **Credential exfiltration is blocked at egress** — even if the model is already compromised, the outbound call never reaches the server.
-- **Tool registry is locked after handshake** — the server can't inject new tools mid-session.
+It strips tool descriptions before they reach the model so the text never lands in context. It scans tool call responses against 60 indicators from published injection research and redacts or blocks matches before the model reads them. It intercepts outbound calls carrying credentials so the server never receives them even if the model is already compromised. It locks the tool registry after the initial handshake so the server cannot add new tools mid-session.
 
-You don't control what MCP servers put in their messages, and LLMs are trivially manipulated by text. Kevlar enforces a policy layer between them so you don't have to trust every server you connect to.
+You do not control what an MCP server puts in its messages. Kevlar sits between the model and the server so you do not have to.
+
+</details>
 
 ---
 
