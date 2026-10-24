@@ -22,12 +22,17 @@ MCP Client ──► [ Kevlar proxy ] ──► MCP Server
 
 ## How it works
 
-**TL;DR.** Kevlar sits between client and server and does four things:
+<details>
+<summary>TL;DR</summary>
+
+Kevlar sits between client and server and does four things:
 
 1. Strips all tool descriptions before they reach the LLM. No exceptions.
 2. Scans tool call responses for injection payloads and either redacts matched spans or blocks the response entirely.
 3. Blocks outbound calls carrying credentials in their arguments, even if the LLM has already been compromised.
 4. Locks the tool registry after the initial handshake so the server cannot inject new tools mid-session.
+
+</details>
 
 <details>
 <summary>CDR on <code>tools/list</code></summary>
