@@ -105,7 +105,7 @@ is for enforcement after I understand that server's behavior.
 </details>
 
 <details>
-<summary>Install</summary>
+<summary>Manual Install</summary>
 
 ```bash
 git clone https://github.com/Ablation-Tool/kevlar.git
