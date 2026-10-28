@@ -33,91 +33,54 @@ The MCP spec does not prevent any of this.
 
 You do not control what an MCP server puts in its messages.
 
-## How it works
+## Capabilities
 
 <details>
-<summary>TL;DR</summary>
+<summary>Proxy & Protocol Protection</summary>
 
-Kevlar sits between client and server and does four things:
-
-1. Strips all tool descriptions before they reach the LLM. No exceptions.
-2. Scans tool call responses for injection payloads and either redacts matched spans or blocks the response entirely.
-3. Blocks outbound calls carrying credentials in their arguments, even if the LLM has already been compromised.
-4. Locks the tool registry after the initial handshake so the server cannot inject new tools mid-session.
+| Capability | Code | Description |
+|:---|:---|:---|
+| [**Strict Message Validation**](docs/architecture.md#message-routing) | [1](kevlar.py) | Bounds line reads, rejects duplicate keys, NaN/Infinity, and batch arrays, and reserializes every forwarded message. |
+| [**Process Lifecycle Control**](docs/architecture.md#proxy-lifecycle) | [1](kevlar.py) | Runs concurrent protocol pumps and terminates the server process group on shutdown to avoid orphaned children. |
+| [**Fail-Closed Routing**](docs/architecture.md#message-routing) | [1](kevlar.py) | Routes MCP messages through policy handlers, drops unsupported content, and converts internal failures into protocol errors. |
 
 </details>
 
 <details>
-<summary>CDR on <code>tools/list</code></summary>
+<summary>Content Disarm & Reconstruction</summary>
 
-Kevlar strips every `description` field to `""` unconditionally on every `tools/list` response, before the message reaches the client. The LLM sees `name` and `inputSchema` only. `inputSchema` is rebuilt from an allowlist: prose fields like `description`, `title`, `examples`, and `$comment` are stripped there too, and `enum` values, property keys, `$ref` targets, and `type` values are validated against the MCP spec. Score 0 on this pass cannot be achieved by adding description text back, because description text is never forwarded regardless of score.
-
-</details>
-
-<details>
-<summary>Analysis on <code>tools/call</code> responses</summary>
-
-Tool call results cannot be stripped without breaking functionality. Kevlar scans them against ~60 indicators sourced from published prompt injection research. Responses scoring above the mode threshold are quarantined (matched spans replaced with `[KEVLAR:<ID>]` tokens) or rejected (replaced with an `isError` block). Unicode bypass attempts using characters that normalize to injection text under NFKC are detected before normalization and redacted after.
+| Capability | Code | Description |
+|:---|:---|:---|
+| [**Tool List CDR**](docs/architecture.md#inbound-toolslist) | [1](policy.py) | Strips tool descriptions and rebuilds tools with sanitized names and schemas before they reach the model. |
+| [**Tool Response Analysis**](docs/architecture.md#inbound-toolscall-response) | [1](policy.py) | Scans response content and redacts or rejects injection payloads according to the active mode. |
+| [**Initialize, Resource & Prompt CDR**](docs/architecture.md#inbound-initialize) | [1](policy.py) | Strips instructions and descriptions and scans prompt content across additional MCP message types. |
+| [**Schema CDR Allowlist**](docs/architecture.md#schema-cdr-allowlist) | [1](policy.py) | Rebuilds input schemas from validated structural fields and drops prose, unsafe references, and excessive nesting. |
 
 </details>
 
 <details>
-<summary>Egress DLP</summary>
+<summary>Policy & Enforcement</summary>
 
-Outbound `tools/call` arguments are scanned before the call is forwarded to the server. If the LLM has already been compromised and is trying to exfiltrate credentials, the call is blocked at the proxy layer. The server never receives it. Runs in all three modes.
-
-</details>
-
-<details>
-<summary>Tool registry lock (strict mode)</summary>
-
-After the initial `tools/list` handshake, the set of callable tool names is frozen. `notifications/tools/list_changed` from the server is dropped, not forwarded. Any call to a tool not in the CDR-sanitized set is blocked with a synthetic `isError` response regardless of call content.
-
-</details>
-
-## Setup
-
-<details>
-<summary>AI Agent Install</summary>
-
-```text
-Install Kevlar from https://github.com/Ablation-Tool/kevlar for me.
-
-Confirm Linux or macOS with Python 3.10 or newer. Clone the repository if it
-is absent. For an existing checkout, verify its origin and check for
-uncommitted changes. Do not reset, clean, overwrite, or pull over local
-changes. Stop and ask if the remote differs or the checkout is dirty.
-
-Review pyproject.toml and the documented Kevlar entry point. Create a
-project-local Python virtual environment, activate it for my shell, and
-install from the source checkout with:
-
-  python -m pip install .
-
-Verify with `kevlar --help`. Stop on errors and do not use sudo, global
-Python installation, or alternate package sources.
-
-Do not edit Claude Desktop or other MCP client configuration, launch npx or
-uvx servers, or place credentials in commands or logs. If I later request a
-server profile, propose audit mode first and explain the log destination.
-Use strict enforcement only after I approve it. Report the checkout and
-environment paths, Python version, and verification result.
-```
+| Capability | Code | Description |
+|:---|:---|:---|
+| [**Mode-Based Scoring**](docs/architecture.md#scoring) | [1](policy.py) | Applies severity weights and strict, lenient, or audit thresholds to allow, quarantine, or reject content. |
+| [**Egress DLP**](docs/architecture.md#egress-dlp) | [1](policy.py)&nbsp;[2](kevlar.py) | Scans outbound tool-call arguments and blocks credential-bearing calls before they reach the server. |
+| [**Tool Registry Lock**](docs/architecture.md#tool-registry-lock) | [1](kevlar.py) | Freezes callable tool names after the initial handshake and blocks mid-session tool injection in strict mode. |
+| [**Indicator Registries**](docs/architecture.md#indicator-registries) | [1](policy.py) | Uses separate aggressive description and conservative content patterns with stable IDs and snippet masking. |
 
 </details>
 
 <details>
-<summary>Manual Install</summary>
+<summary>Audit & Extensibility</summary>
 
-```bash
-git clone https://github.com/Ablation-Tool/kevlar.git
-cd kevlar
-pip install .
-```
-
-Requires Python 3.10+. Linux and macOS only. Depends on `os.killpg` and `asyncio.connect_read_pipe`.
+| Capability | Code | Description |
+|:---|:---|:---|
+| [**JSONL Audit Log**](docs/architecture.md#audit-log) | [1](kevlar.py) | Records policy decisions, scores, indicators, and masked snippets without writing logs into the protocol channel. |
+| [**Pure Policy Engine**](docs/architecture.md#module-overview) | [1](policy.py) | Keeps policy decisions separate from I/O for direct unit testing and reuse in other projects. |
 
 </details>
+
+## Operations
 
 <details>
 <summary>Quickstart</summary>
@@ -166,7 +129,49 @@ Use `strict` in production. Use `audit` to profile a new server before tightenin
 
 </details>
 
-## Reference
+## Setup & About
+
+<details>
+<summary>AI Agent Install</summary>
+
+```text
+Install Kevlar from https://github.com/Ablation-Tool/kevlar for me.
+
+Confirm Linux or macOS with Python 3.10 or newer. Clone the repository if it
+is absent. For an existing checkout, verify its origin and check for
+uncommitted changes. Do not reset, clean, overwrite, or pull over local
+changes. Stop and ask if the remote differs or the checkout is dirty.
+
+Review pyproject.toml and the documented Kevlar entry point. Create a
+project-local Python virtual environment, activate it for my shell, and
+install from the source checkout with:
+
+  python -m pip install .
+
+Verify with `kevlar --help`. Stop on errors and do not use sudo, global
+Python installation, or alternate package sources.
+
+Do not edit Claude Desktop or other MCP client configuration, launch npx or
+uvx servers, or place credentials in commands or logs. If I later request a
+server profile, propose audit mode first and explain the log destination.
+Use strict enforcement only after I approve it. Report the checkout and
+environment paths, Python version, and verification result.
+```
+
+</details>
+
+<details>
+<summary>Manual Install</summary>
+
+```bash
+git clone https://github.com/Ablation-Tool/kevlar.git
+cd kevlar
+pip install .
+```
+
+Requires Python 3.10+. Linux and macOS only. Depends on `os.killpg` and `asyncio.connect_read_pipe`.
+
+</details>
 
 <details>
 <summary>Architecture</summary>
