@@ -188,3 +188,10 @@ pytest
 149 tests. `tests/test_proxy.py` runs integration tests against real subprocess pairs. `tests/test_policy.py` covers the pure policy engine in unit tests.
 
 </details>
+
+<details>
+<summary>License</summary>
+
+Kevlar is free and open-source software under the [MIT License](LICENSE). You may use, modify, and distribute it, including for commercial purposes, provided the copyright and license notice are retained. The software is provided without warranty.
+
+</details>
