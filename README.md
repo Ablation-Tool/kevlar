@@ -83,21 +83,25 @@ After the initial `tools/list` handshake, the set of callable tool names is froz
 ```text
 Install Kevlar from https://github.com/Ablation-Tool/kevlar for me.
 
-Confirm that I am using Linux or macOS with Python 3.10 or newer. Clone the
-repository if it is not already present. Create a project-local Python virtual
-environment, activate it using the appropriate command for my shell, and
-install Kevlar from the source checkout with:
+Confirm Linux or macOS with Python 3.10 or newer. Clone the repository if it
+is absent. For an existing checkout, verify its origin and check for
+uncommitted changes. Do not reset, clean, overwrite, or pull over local
+changes. Stop and ask if the remote differs or the checkout is dirty.
+
+Review pyproject.toml and the documented Kevlar entry point. Create a
+project-local Python virtual environment, activate it for my shell, and
+install from the source checkout with:
 
   python -m pip install .
 
-Verify the installation by running `kevlar --help`. Report the checkout path,
-virtual-environment path, Python version, and verification result.
+Verify with `kevlar --help`. Stop on errors and do not use sudo, global
+Python installation, or alternate package sources.
 
-Do not use sudo, modify my global Python environment, edit Claude Desktop or
-other MCP client configuration, launch an npx or uvx MCP server, or place
-credentials in commands or logs during setup. If I later ask you to profile a
-server, propose audit mode first and explain the log destination. Strict mode
-is for enforcement after I understand that server's behavior.
+Do not edit Claude Desktop or other MCP client configuration, launch npx or
+uvx servers, or place credentials in commands or logs. If I later request a
+server profile, propose audit mode first and explain the log destination.
+Use strict enforcement only after I approve it. Report the checkout and
+environment paths, Python version, and verification result.
 ```
 
 </details>
