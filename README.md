@@ -78,6 +78,33 @@ After the initial `tools/list` handshake, the set of callable tool names is froz
 ## Setup
 
 <details>
+<summary>AI Agent Install</summary>
+
+Hand this prompt to your AI coding agent. It installs Kevlar in an isolated Python environment without changing MCP client configuration or launching an MCP server.
+
+```text
+Install Kevlar from https://github.com/Ablation-Tool/kevlar for me.
+
+Confirm that I am using Linux or macOS with Python 3.10 or newer. Clone the
+repository if it is not already present. Create a project-local Python virtual
+environment, activate it using the appropriate command for my shell, and
+install Kevlar from the source checkout with:
+
+  python -m pip install .
+
+Verify the installation by running `kevlar --help`. Report the checkout path,
+virtual-environment path, Python version, and verification result.
+
+Do not use sudo, modify my global Python environment, edit Claude Desktop or
+other MCP client configuration, launch an npx or uvx MCP server, or place
+credentials in commands or logs during setup. If I later ask you to profile a
+server, propose audit mode first and explain the log destination. Strict mode
+is for enforcement after I understand that server's behavior.
+```
+
+</details>
+
+<details>
 <summary>Install</summary>
 
 ```bash
