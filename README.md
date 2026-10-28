@@ -83,6 +83,13 @@ You do not control what an MCP server puts in its messages.
 ## Operations
 
 <details>
+<summary>Operator Guide</summary>
+
+See [docs/operations.md](docs/operations.md) for client setup on macOS and Linux, mode selection, audit-log handling, troubleshooting, operational limits, and verification commands.
+
+</details>
+
+<details>
 <summary>Quickstart</summary>
 
 ```bash
@@ -191,6 +198,8 @@ pytest
 ```
 
 149 tests. `tests/test_proxy.py` runs integration tests against real subprocess pairs. `tests/test_policy.py` covers the pure policy engine in unit tests.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development rules, [SECURITY.md](SECURITY.md) for private vulnerability reporting, and [CHANGELOG.md](CHANGELOG.md) for release history.
 
 </details>
 
