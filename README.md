@@ -80,8 +80,6 @@ After the initial `tools/list` handshake, the set of callable tool names is froz
 <details>
 <summary>AI Agent Install</summary>
 
-Hand this prompt to your AI coding agent. It installs Kevlar in an isolated Python environment without changing MCP client configuration or launching an MCP server.
-
 ```text
 Install Kevlar from https://github.com/Ablation-Tool/kevlar for me.
 
